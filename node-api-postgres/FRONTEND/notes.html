@@ -4,8 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>DigiNotes - Notes</title>
-  <style>
-    body {
+</head>
+<style>
+body {
       margin: 0;
       padding: 0;
       font-family: Arial, sans-serif;
@@ -89,6 +90,7 @@
     .user-name {
       font-size: 1.1rem;
       color: #333;
+      text-align: left;
     }
 
     .button-group {
@@ -107,12 +109,21 @@
     }
 
     .edit-btn {
-      background-color: #eecb06;
+      background-color: #27ae60;
       color: white;
     }
 
     .edit-btn:hover {
-      background-color: #bd851e;
+      background-color: #1e8449;
+    }
+
+    .update-btn {
+      background-color: #3498db;
+      color: white;
+    }
+
+    .update-btn:hover {
+      background-color: #2980b9;
     }
 
     .delete-btn {
@@ -124,7 +135,7 @@
       background-color: #c0392b;
     }
 
-    .create-btn {
+    .create-btn, .submit-btn {
       background-color: #3498db;
       color: white;
       padding: 0.75rem 1.5rem;
@@ -137,14 +148,59 @@
       transition: background-color 0.3s ease;
     }
 
-    .create-btn:hover {
+    .create-btn:hover, .submit-btn:hover {
       background-color: #2980b9;
     }
-  </style>
-</head>
+
+    .cancel-btn {
+      background-color: #7f8c8d;
+      color: white;
+      padding: 0.75rem 1.5rem;
+      border: none;
+      border-radius: 5px;
+      font-size: 1rem;
+      cursor: pointer;
+      margin-top: 1.5rem;
+      align-self: center;
+      transition: background-color 0.3s ease;
+    }
+
+    .cancel-btn:hover {
+      background-color: #636e72;
+    }
+
+    .create-inputs, .edit-inputs {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 0.5rem;
+      text-align: left;
+    }
+
+    .create-inputs label, .edit-inputs label {
+      font-weight: bold;
+      font-size: 0.95rem;
+      color: #333;
+    }
+
+    .create-inputs input, .edit-inputs input {
+      padding: 0.55rem 0.65rem;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 1rem;
+      width: 100%;
+      box-sizing: border-box;
+      background: #fff;
+    }
+
+    .helper {
+      font-size: 0.9rem;
+      color: #666;
+    }
+
+</style>
 <body>
   <div class="banner">
-    <h1 id="go-home" class="banner-title">DigiNotes</h1>
+    <h1 id="go-home"class="banner-title">DigiNotes</h1>
     <button class="sign-in-btn" id="auth-button">
       <span id="auth-status"></span>
     </button>
@@ -152,16 +208,18 @@
 
   <div class="main-content">
     <div class="card">
-      <h2>Notes</h2>
+      <h2>Users</h2>
       <div id="users-list"></div>
-      <!-- Create button -->
-      <button class="create-btn" id="create-user">+ Create</button>
+      <div id="create-controls">
+        <button class="create-btn" id="create-user">+ Create</button>
+      </div>
     </div>
   </div>
 
   <script>
     let authString = "";
     let isAuthenticated = false;
+    let isCreating = false;
 
     function setAuthUI(statusText) {
       const authStatusEl = document.getElementById('auth-status');
@@ -169,7 +227,7 @@
         isAuthenticated = true;
         authStatusEl.textContent = 'Sign out';
         authString = 'http://localhost:3000/logout';
-        loadUsers(); // auto-load users when signed in
+        loadUsers();
       } else {
         isAuthenticated = false;
         authStatusEl.textContent = 'Sign in';
@@ -179,7 +237,11 @@
       }
     }
 
-    // Fetch auth status
+    // Click handler for DigiNotes creation div
+    document.getElementById('go-home').addEventListener('click', () => {
+      window.location.href = "http://localhost:3000/";
+    });
+
     fetch('/auth')
       .then(r => r.text())
       .then(status => setAuthUI(status))
@@ -188,12 +250,10 @@
         document.getElementById('auth-status').textContent = 'Error';
       });
 
-    // Login/Logout button
     document.getElementById('auth-button').addEventListener('click', () => {
       if (authString) window.location.href = authString;
     });
 
-    // Load users and display rows with buttons
     function loadUsers() {
       if (!isAuthenticated) return;
 
@@ -216,12 +276,12 @@
             const editBtn = document.createElement('button');
             editBtn.className = "action-btn edit-btn";
             editBtn.textContent = "Edit";
-            editBtn.onclick = () => alert(`Edit user ${user.id}`);
+            editBtn.onclick = () => enterEditMode(row, user);
 
             const deleteBtn = document.createElement('button');
             deleteBtn.className = "action-btn delete-btn";
             deleteBtn.textContent = "Delete";
-            deleteBtn.onclick = () => alert(`Delete user ${user.id}`);
+            deleteBtn.onclick = () => deleteUser(user.id);
 
             buttonGroup.appendChild(editBtn);
             buttonGroup.appendChild(deleteBtn);
@@ -230,6 +290,7 @@
             row.appendChild(buttonGroup);
             list.appendChild(row);
           });
+          exitCreateMode();
         })
         .catch(err => {
           console.error(err);
@@ -238,19 +299,189 @@
         });
     }
 
-    // Create button handler
-    document.getElementById('create-user').addEventListener('click', () => {
+    function deleteUser(userId) {
+      if (!isAuthenticated) {
+        alert("Please sign in to delete a user.");
+        return;
+      }
+      if (!confirm("Are you sure you want to delete this user?")) return;
+
+      fetch(`/users/${encodeURIComponent(userId)}`, {
+        method: 'DELETE'
+      })
+      .then(async (res) => {
+        if (!res.ok) {
+          const msg = await res.text().catch(() => '');
+          throw new Error(msg || 'Failed to delete user');
+        }
+        loadUsers();
+      })
+      .catch(err => {
+        console.error(err);
+        alert('Error deleting user: ' + err.message);
+      });
+    }
+
+    // Edit → Update functions (unchanged from last version)
+    function enterEditMode(row, user) {
+      const nameDiv = row.querySelector('.user-name');
+      const buttonGroup = row.querySelector('.button-group');
+      const editBtn = buttonGroup.querySelector('.edit-btn');
+
+      const editWrap = document.createElement('div');
+      editWrap.className = 'edit-inputs';
+      editWrap.innerHTML = `
+        <div>
+          <label for="edit-name-${user.id}">Name</label>
+          <input type="text" id="edit-name-${user.id}" value="${escapeHtml(user.name)}" />
+        </div>
+        <div>
+          <label for="edit-email-${user.id}">Email</label>
+          <input type="email" id="edit-email-${user.id}" value="${escapeHtml(user.email)}" />
+        </div>
+        <div class="helper">Update the fields and click <b>Update</b>.</div>
+      `;
+      nameDiv.replaceWith(editWrap);
+
+      editBtn.textContent = 'Update';
+      editBtn.classList.remove('edit-btn');
+      editBtn.classList.add('update-btn');
+      editBtn.onclick = () => submitUpdate(row, user.id);
+
+      const delBtn = buttonGroup.querySelector('.delete-btn');
+      if (delBtn) {
+        delBtn.disabled = true;
+        delBtn.style.opacity = '0.6';
+        delBtn.style.cursor = 'not-allowed';
+      }
+    }
+
+    function submitUpdate(row, userId) {
+      if (!isAuthenticated) {
+        alert("Please sign in to update a user.");
+        return;
+      }
+      const nameVal = row.querySelector(`#edit-name-${userId}`)?.value.trim();
+      const emailVal = row.querySelector(`#edit-email-${userId}`)?.value.trim();
+
+      if (!nameVal || !emailVal) {
+        alert("Please provide both Name and Email.");
+        return;
+      }
+
+      fetch(`/users/${encodeURIComponent(userId)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: nameVal, email: emailVal })
+      })
+      .then(async (res) => {
+        if (!res.ok) {
+          const msg = await res.text().catch(() => '');
+          throw new Error(msg || 'Failed to update user');
+        }
+        loadUsers();
+      })
+      .catch(err => {
+        console.error(err);
+        alert('Error updating user: ' + err.message);
+      });
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    // Create / Cancel / Submit functions (unchanged)
+    function enterCreateMode() {
+      if (isCreating) return;
       if (!isAuthenticated) {
         alert("Please sign in to create a user.");
         return;
       }
-      alert("Create user functionality coming soon!");
-    });
-  
-    // Click handler for DigiNotes creation div
-    document.getElementById('go-home').addEventListener('click', () => {
-      window.location.href = "http://localhost:3000/";
-    });
+      isCreating = true;
+
+      const list = document.getElementById('users-list');
+      const tempRow = document.createElement('div');
+      tempRow.className = 'user-row';
+      tempRow.id = 'temp-create-row';
+      tempRow.innerHTML = `
+        <div class="create-inputs">
+          <div>
+            <label for="new-name">Name</label>
+            <input type="text" id="new-name" placeholder="Jane Doe" />
+          </div>
+          <div>
+            <label for="new-email">Email</label>
+            <input type="email" id="new-email" placeholder="jane@example.com" />
+          </div>
+          <div class="helper">Enter the new user's Name and Email, then click <b>Submit</b> or <b>Cancel</b>.</div>
+        </div>
+      `;
+      list.appendChild(tempRow);
+
+      const controls = document.getElementById('create-controls');
+      controls.innerHTML = `
+        <button class="submit-btn" id="submit-user">Submit</button>
+        <button class="cancel-btn" id="cancel-create">Cancel</button>
+      `;
+
+      document.getElementById('submit-user').addEventListener('click', createUser);
+      document.getElementById('cancel-create').addEventListener('click', exitCreateMode);
+    }
+
+    function exitCreateMode() {
+      if (!isCreating) return;
+
+      const temp = document.getElementById('temp-create-row');
+      if (temp) temp.remove();
+
+      const controls = document.getElementById('create-controls');
+      controls.innerHTML = `<button class="create-btn" id="create-user">+ Create</button>`;
+      document.getElementById('create-user').addEventListener('click', enterCreateMode);
+
+      isCreating = false;
+    }
+
+    function createUser() {
+      if (!isAuthenticated) {
+        alert("Please sign in to create a user.");
+        return;
+      }
+      const nameEl = document.getElementById('new-name');
+      const emailEl = document.getElementById('new-email');
+      const name = nameEl?.value.trim();
+      const email = emailEl?.value.trim();
+
+      if (!name || !email) {
+        alert("Please provide both Name and Email.");
+        return;
+      }
+
+      fetch('/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email })
+      })
+      .then(async (res) => {
+        if (!res.ok) {
+          const msg = await res.text().catch(() => '');
+          throw new Error(msg || 'Failed to create user');
+        }
+        exitCreateMode();
+        loadUsers();
+      })
+      .catch(err => {
+        console.error(err);
+        alert('Error creating user: ' + err.message);
+      });
+    }
+
+    document.getElementById('create-user').addEventListener('click', enterCreateMode);
   </script>
 </body>
 </html>
+

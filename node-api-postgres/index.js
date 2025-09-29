@@ -15,6 +15,8 @@ const config = {
   issuerBaseURL: 'https://dev-jor1d1ja1ob8l7be.us.auth0.com'
 };
 
+app.use(express.static('public'));
+
 // auth router attaches /login, /logout, and /callback routes to the baseURL
 app.use(auth(config));
 
