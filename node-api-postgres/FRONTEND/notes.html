@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>DigiNotes - Notes</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+      height: 100vh;
+      background-color: #f5f5f5;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .banner {
+      background-color: #2c3e50;
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .banner-title {
+      color: white;
+      font-size: 1.8rem;
+      font-weight: bold;
+      margin: 0;
+    }
+
+    .sign-in-btn {
+      background-color: #3498db;
+      color: white;
+      border: none;
+      padding: 0.7rem 1.5rem;
+      border-radius: 5px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+
+    .sign-in-btn:hover {
+      background-color: #2980b9;
+    }
+
+    .main-content {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 1.5rem;
+    }
+
+    .card {
+      width: 100%;
+      max-width: 720px;
+      padding: 2rem;
+      background-color: white;
+      border-radius: 10px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .card h2 {
+      margin: 0 0 1rem 0;
+      font-size: 1.5rem;
+      color: #333;
+    }
+
+    #users-list {
+      display: flex;
+      flex-direction: column;
+      text-align: center;
+      gap: 1rem;
+    }
+
+    .user-row {
+      padding: 1rem;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      background-color: #fafafa;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .user-name {
+      font-size: 1.1rem;
+      color: #333;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .action-btn {
+      flex: 1;
+      padding: 0.5rem;
+      border: none;
+      border-radius: 5px;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+
+    .edit-btn {
+      background-color: #eecb06;
+      color: white;
+    }
+
+    .edit-btn:hover {
+      background-color: #bd851e;
+    }
+
+    .delete-btn {
+      background-color: #e74c3c;
+      color: white;
+    }
+
+    .delete-btn:hover {
+      background-color: #c0392b;
+    }
+
+    .create-btn {
+      background-color: #3498db;
+      color: white;
+      padding: 0.75rem 1.5rem;
+      border: none;
+      border-radius: 5px;
+      font-size: 1rem;
+      cursor: pointer;
+      margin-top: 1.5rem;
+      align-self: center;
+      transition: background-color 0.3s ease;
+    }
+
+    .create-btn:hover {
+      background-color: #2980b9;
+    }
+  </style>
+</head>
+<body>
+  <div class="banner">
+    <h1 id="go-home" class="banner-title">DigiNotes</h1>
+    <button class="sign-in-btn" id="auth-button">
+      <span id="auth-status"></span>
+    </button>
+  </div>
+
+  <div class="main-content">
+    <div class="card">
+      <h2>Notes</h2>
+      <div id="users-list"></div>
+      <!-- Create button -->
+      <button class="create-btn" id="create-user">+ Create</button>
+    </div>
+  </div>
+
+  <script>
+    let authString = "";
+    let isAuthenticated = false;
+
+    function setAuthUI(statusText) {
+      const authStatusEl = document.getElementById('auth-status');
+      if (statusText === 'Logged in') {
+        isAuthenticated = true;
+        authStatusEl.textContent = 'Sign out';
+        authString = 'http://localhost:3000/logout';
+        loadUsers(); // auto-load users when signed in
+      } else {
+        isAuthenticated = false;
+        authStatusEl.textContent = 'Sign in';
+        authString = 'http://localhost:3000/login';
+        document.getElementById('users-list').innerHTML =
+          "<p>Please sign in to view users.</p>";
+      }
+    }
+
+    // Fetch auth status
+    fetch('/auth')
+      .then(r => r.text())
+      .then(status => setAuthUI(status))
+      .catch(err => {
+        console.error(err);
+        document.getElementById('auth-status').textContent = 'Error';
+      });
+
+    // Login/Logout button
+    document.getElementById('auth-button').addEventListener('click', () => {
+      if (authString) window.location.href = authString;
+    });
+
+    // Load users and display rows with buttons
+    function loadUsers() {
+      if (!isAuthenticated) return;
+
+      fetch('/users')
+        .then(r => r.json())
+        .then(data => {
+          const list = document.getElementById('users-list');
+          list.innerHTML = "";
+          data.forEach(user => {
+            const row = document.createElement('div');
+            row.className = "user-row";
+
+            const name = document.createElement('div');
+            name.className = "user-name";
+            name.innerHTML = `<b>Name:</b><br>${user.name}<br><b>Email:</b><br>${user.email}`;
+
+            const buttonGroup = document.createElement('div');
+            buttonGroup.className = "button-group";
+
+            const editBtn = document.createElement('button');
+            editBtn.className = "action-btn edit-btn";
+            editBtn.textContent = "Edit";
+            editBtn.onclick = () => alert(`Edit user ${user.id}`);
+
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = "action-btn delete-btn";
+            deleteBtn.textContent = "Delete";
+            deleteBtn.onclick = () => alert(`Delete user ${user.id}`);
+
+            buttonGroup.appendChild(editBtn);
+            buttonGroup.appendChild(deleteBtn);
+
+            row.appendChild(name);
+            row.appendChild(buttonGroup);
+            list.appendChild(row);
+          });
+        })
+        .catch(err => {
+          console.error(err);
+          document.getElementById('users-list').innerHTML =
+            "<p>Error loading users.</p>";
+        });
+    }
+
+    // Create button handler
+    document.getElementById('create-user').addEventListener('click', () => {
+      if (!isAuthenticated) {
+        alert("Please sign in to create a user.");
+        return;
+      }
+      alert("Create user functionality coming soon!");
+    });
+  
+    // Click handler for DigiNotes creation div
+    document.getElementById('go-home').addEventListener('click', () => {
+      window.location.href = "http://localhost:3000/";
+    });
+  </script>
+</body>
+</html>
