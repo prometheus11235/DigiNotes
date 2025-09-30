@@ -25,8 +25,8 @@ app.get('/auth', (req, res) => {
   res.send(req.oidc.isAuthenticated() ? 'Logged in' : 'Logged out');
 });
 
-// This function requires the user to be logged in to access
-app.get('/notes', requiresAuth());
+// This function requires the user to be logged in to access these routes
+// If the user is not logged in, they will be redirected to the login page
 
 
 app.use(bodyParser.json())
@@ -44,12 +44,15 @@ app.get('/notes', (req, res) => {
   res.sendFile(__dirname + '/FRONTEND/notes.html');
 })
 
-app.get('/users', db.getUsers)
-app.get('/users/:id', db.getUserById)
-app.post('/users', db.createUser)
-app.put('/users/:id', db.updateUser)
-app.delete('/users/:id', db.deleteUser)
-app.get('/connect', db.checkConnection)
+// This function requires the user to be logged in to access these routes
+// If the user is not logged in, they will be redirected to the login page
+// These routes also define CRUD operations for users in the database
+app.get('/notes', requiresAuth());
+app.get('/users', requiresAuth(), db.getUsers)
+app.get('/users/:id', requiresAuth(), db.getUserById)
+app.post('/users', requiresAuth(), db.createUser)
+app.put('/users/:id', requiresAuth(), db.updateUser)
+app.delete('/users/:id', requiresAuth(), db.deleteUser)
 
 app.listen(port, () => {
   console.log(`App running on port ${port}.`)
